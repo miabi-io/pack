@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Hadolint (Dockerfile lint)
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: Dockerfile
+
+  build-and-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      # PACK_VERSION defaults in the Dockerfile, so CI tracks the pinned version
+      # without restating it here.
+      - name: Build miabi/pack image
+        run: docker build -t miabi/pack:ci .
+      # End-to-end: build the sample app with the just-built image over a mounted
+      # socket — the exact contract Miabi uses (workspace + docker.sock binds).
+      - name: pack build sample app over mounted socket
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}/examples/node-hello:/workspace" \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            miabi/pack:ci \
+            build miabi-pack-ci:latest \
+              --path /workspace \
+              --builder paketobuildpacks/builder-jammy-base \
+              --docker-host inherit --trust-builder --pull-policy if-not-present
+      - name: Verify the built image runs and serves on $PORT
+        run: |
+          cid=$(docker run -d -e PORT=8080 -p 8080:8080 miabi-pack-ci:latest)
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:8080/ | grep -q "hello from miabi/pack"; then
+              echo "ok"; docker rm -f "$cid"; exit 0
+            fi
+            sleep 2
+          done
+          echo "app did not serve in time"; docker logs "$cid"; docker rm -f "$cid"; exit 1

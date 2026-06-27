@@ -1,0 +1,12 @@
+{
+  "name": "node-hello",
+  "version": "1.0.0",
+  "description": "Minimal Dockerfile-less app used to smoke-test miabi/pack",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
