@@ -3,6 +3,9 @@ ARG PACK_VERSION=0.40.7
 FROM alpine:3.21 AS fetch
 ARG PACK_VERSION
 ARG TARGETARCH
+# DL3018: deliberately unpinned — Alpine repo versions move with each point
+# release and pinning them just breaks builds; --no-cache pulls the current set.
+# hadolint ignore=DL3018
 RUN apk add --no-cache curl ca-certificates
 # pack publishes per-arch linux tarballs: amd64 -> "linux", arm64 -> "linux-arm64".
 RUN set -eux; \
@@ -24,6 +27,7 @@ LABEL author="Jonas Kaninda" \
       org.opencontainers.image.description="Cloud Native Buildpacks pack CLI helper for Miabi" \
       org.opencontainers.image.version=${PACK_VERSION}
 
+# hadolint ignore=DL3018
 RUN apk add --no-cache ca-certificates
 COPY --from=fetch /usr/local/bin/pack /usr/local/bin/pack
 
